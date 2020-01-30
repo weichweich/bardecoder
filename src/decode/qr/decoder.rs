@@ -24,7 +24,7 @@ impl QRDecoder {
 }
 
 impl Decode<QRData, QRError> for QRDecoder {
-    fn decode(&self, data: Result<QRData, QRError>) -> Result<String, QRError> {
+    fn decode(&self, data: Result<QRData, QRError>) -> Result<Vec::<u8>, QRError> {
         let qr_data = data?;
 
         let format = super::format::format(&qr_data)?;

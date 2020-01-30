@@ -1,15 +1,15 @@
 use crate::util::qr::QRError;
 use crate::util::Chomp;
 
-pub fn data(input: Vec<u8>, version: u32) -> Result<String, QRError> {
+pub fn data(input: Vec<u8>, version: u32) -> Result<Vec<u8>, QRError> {
     let mut chomp = Chomp::new(input);
-    let mut result = String::new();
+    let mut result = Vec::<u8>::new();
 
     while let Some(mode) = chomp.chomp(4) {
         match mode {
-            0b0001 => result.push_str(numeric(&mut chomp, version)?.as_str()),
-            0b0010 => result.push_str(alphanumeric(&mut chomp, version)?.as_str()),
-            0b0100 => result.push_str(eight_bit(&mut chomp, version)?.as_str()),
+            0b0001 => result.extend(numeric(&mut chomp, version)?),
+            0b0010 => result.extend(alphanumeric(&mut chomp, version)?),
+            0b0100 => result.extend(eight_bit(&mut chomp, version)?),
             0b0000 => break,
             _ => {
                 return Err(QRError {
@@ -22,7 +22,7 @@ pub fn data(input: Vec<u8>, version: u32) -> Result<String, QRError> {
     Ok(result)
 }
 
-fn numeric(chomp: &mut Chomp, version: u32) -> Result<String, QRError> {
+fn numeric(chomp: &mut Chomp, version: u32) -> Result<Vec<u8>, QRError> {
     let length_bits = match version {
         1..=9 => 10,
         10..=26 => 12,
@@ -41,12 +41,12 @@ fn numeric(chomp: &mut Chomp, version: u32) -> Result<String, QRError> {
         },
     )?;
 
-    let mut result = String::new();
+    let mut result = Vec::<u8>::new();
 
     while length > 0 {
         if length >= 3 {
             let digits = read_bits_u16(chomp, 10)?;
-            result.push_str(&format!("{:03}", digits));
+            result.extend(&digits.to_be_bytes());
 
             length -= 3;
             continue;
@@ -54,14 +54,14 @@ fn numeric(chomp: &mut Chomp, version: u32) -> Result<String, QRError> {
 
         if length == 2 {
             let digits = read_bits_u16(chomp, 7)?;
-            result.push_str(&format!("{:02}", digits));
+            result.extend(&digits.to_be_bytes());
 
             break;
         }
 
         if length == 1 {
             let digits = read_bits_u16(chomp, 4)?;
-            result.push_str(&format!("{:01}", digits));
+            result.extend(&digits.to_be_bytes());
 
             break;
         }
@@ -78,7 +78,7 @@ const ALPHANUMERIC: [char; 45] = [
     '%', '*', '+', '-', '.', '/', ':',
 ];
 
-fn alphanumeric(chomp: &mut Chomp, version: u32) -> Result<String, QRError> {
+fn alphanumeric(chomp: &mut Chomp, version: u32) -> Result<Vec<u8>, QRError> {
     let length_bits = match version {
         1..=9 => 9,
         10..=26 => 11,
@@ -100,13 +100,13 @@ fn alphanumeric(chomp: &mut Chomp, version: u32) -> Result<String, QRError> {
         },
     )?;
 
-    let mut result = String::new();
+    let mut result = Vec::<u8>::new();
 
     while length > 0 {
         if length >= 2 {
             let chars = read_bits_u16(chomp, 11)?;
-            result.push(ALPHANUMERIC[chars as usize / 45]);
-            result.push(ALPHANUMERIC[chars as usize % 45]);
+            result.push(ALPHANUMERIC[chars as usize / 45] as u8);
+            result.push(ALPHANUMERIC[chars as usize % 45] as u8);
 
             length -= 2;
             continue;
@@ -114,7 +114,7 @@ fn alphanumeric(chomp: &mut Chomp, version: u32) -> Result<String, QRError> {
 
         if length == 1 {
             let chars = read_bits_u16(chomp, 6)?;
-            result.push(ALPHANUMERIC[chars as usize]);
+            result.push(ALPHANUMERIC[chars as usize] as u8);
 
             break;
         }
@@ -125,7 +125,7 @@ fn alphanumeric(chomp: &mut Chomp, version: u32) -> Result<String, QRError> {
     Ok(result)
 }
 
-fn eight_bit(chomp: &mut Chomp, version: u32) -> Result<String, QRError> {
+fn eight_bit(chomp: &mut Chomp, version: u32) -> Result<Vec<u8>, QRError> {
     let length_bits = match version {
         1..=9 => 8,
         10..=26 => 16,
@@ -147,10 +147,10 @@ fn eight_bit(chomp: &mut Chomp, version: u32) -> Result<String, QRError> {
         },
     )?;
 
-    let mut result = String::new();
+    let mut result = Vec::<u8>::new();
 
     for _ in 0..length {
-        result.push(read_bits(chomp, 8)? as char);
+        result.push(read_bits(chomp, 8)?);
     }
 
     debug!("EIGHT BIT {:?}", result);

@@ -43,5 +43,5 @@ where
     ERROR: Fail,
 {
     /// Does the actual decoding
-    fn decode(&self, data: Result<DATA, ERROR>) -> Result<String, ERROR>;
+    fn decode(&self, data: Result<DATA, ERROR>) -> Result<Vec::<u8>, ERROR>;
 }
